@@ -21,7 +21,7 @@ public class NQueens {
         var placer = new Placer(size);
         var placeSuccess = placer.placeQueens();
         if (placeSuccess) {
-            for (int i= 0; i < size; i++) {
+            for (int i = 0; i < size; i++) {
                 System.out.println("(" + i + "," + placer.yPositions[i] + ")");
             }
         } else {
@@ -35,61 +35,88 @@ public class NQueens {
         final int[] yPositions;  // The index of this array is the x position of the queen
         final int size;
 
+        final int[][] gcds; // For a,b integers < size, gcds[a][b] = gcd(a, b)
+
         public Placer(int size) {
             yPositions = new int[size];
             this.size = size;
+
+            gcds = new int[size][size];
+            for (int i = 0; i < size; i++) {
+                for (int j = 0; j < size; j++) {
+                    if (i >= j) {
+                        gcds[i][j] = gcd(i, j);
+                    } else {
+                        gcds[i][j] = gcd(j, i);
+                    }
+                }
+            }
         }
 
         public boolean placeQueens() {
             return placeQueens(0);
         }
 
+        // Euclid's algorithm for GCD
+        private int gcd(int a, int b) {
+            if (b == 0)
+                return a;
+            else
+                return gcd(b, a % b);
+        }
+
         private boolean placeQueens(int numPlaced) {
-            if (numPlaced == size)
+            if (numPlaced == size) {
                 return true;
+            }
 
             for (int proposedY = 0; proposedY < size; proposedY++) {
                 if (checkNext(numPlaced, proposedY)) {
-                     yPositions[numPlaced] = proposedY;
-                     if (placeQueens(numPlaced + 1)) {
-                         return true;
-                     }
+                    yPositions[numPlaced] = proposedY;
+                    if (placeQueens(numPlaced + 1)) {
+                        return true;
+                    }
                 }
             }
 
             return false;
         }
 
-        private boolean checkNext(int proposedX, int proposedY) {
+        private boolean checkNext(int rightQueen, int rightQueenY) {
             // Check basic attacks
-            var posDiagValue = proposedY - proposedX;
-            var negDiagValue = proposedY + proposedX;
+            var posDiagValue = rightQueenY - rightQueen;
+            var negDiagValue = rightQueenY + rightQueen;
 
-            for (int x = 0; x < proposedX; x++) {
+            for (int x = 0; x < rightQueen; x++) {
                 var y = yPositions[x];
-                if (y == proposedY)
+                if (y == rightQueenY)
                     return false;
 
                 if ((y - x) == posDiagValue || (y + x) == negDiagValue)
                     return false;
             }
 
-            // Check colinear triplets
-            // Three points P1,P2,P3 are colinear if
-            //   (y3-y2) / (x3-x2) = (y2-y1) / (x2-x1)
-            // Let dy2 = (y3-y2), dx2 = (x3-x2), dy1 = (y2-y1), dx1 = (x2-x1), then
-            //   (y3-y2) / (x3-x2) = (y2-y1) / (x2-x1)
-            //   dy2 / dx2 = dy1 / dx1
-            //   dy2 * dx1 = dy1 * dx2
-
-            for (int middleQueen = 1; middleQueen < proposedX; middleQueen++) {
+            // Check co-linear points
+            // Given (for example) queens at (0, 0) and (4, 6), we know that colinear points
+            // Can only be at (2,3), (6, 9) etc - at multiples of (2,3).
+            // This pair - (2,3) is the GCD of (4-0, 6-0).
+            // We will call 2 the xStep, and 3 the yStep
+            for (int middleQueen = rightQueen - 1; middleQueen >= 1; middleQueen--) {
                 var middleQueenY = yPositions[middleQueen];
-                var dy2 = proposedY - middleQueenY;
-                var dx2 = proposedX - middleQueen;
-                for (int leftQueen = 0; leftQueen < middleQueen; leftQueen++) {
-                    var dy1 = middleQueenY - yPositions[leftQueen];
-                    var dx1 = middleQueen - leftQueen;
-                    if (dy2 * dx1 == dy1 * dx2) {
+
+                var dxMiddle = rightQueen - middleQueen;
+                var dyMiddle = rightQueenY - middleQueenY;
+
+                int divisor;
+                if (dyMiddle > 0) divisor = gcds[dyMiddle][dxMiddle];
+                else divisor = gcds[-dyMiddle][dxMiddle];
+
+                var xStep = dxMiddle / divisor;
+                var yStep = dyMiddle / divisor;
+
+                for (int leftQueen = middleQueen - xStep; leftQueen >= 0; leftQueen -= xStep) {
+                    var dyLeft = rightQueenY - yPositions[leftQueen];
+                    if (dyLeft == (rightQueen - leftQueen) / xStep * yStep) {
                         return false;
                     }
                 }
